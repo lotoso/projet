@@ -1,0 +1,269 @@
+#include "snakeh.h"
+
+void putapple();
+void puttext(SDL_Surface **surface, char *text, int size, int r, int g, int b);
+void setrect(SDL_Rect *rect, int x, int y, int w, int h);
+
+SDL_Event event;
+
+SDL_Color textcolor;
+TTF_Font *font;
+
+SDL_Surface *tfps, *tpause, *tscore, *tgameover, *screen, *sprite1, *grass, *back, *apple;
+SDL_Rect rtmp;
+Mix_Chunk *s;
+Uint32 colorkey;
+
+int dx = 1;
+int dy = 0;
+int score = 0;
+int fps = 0;
+int startticks, startticksf;
+
+char gticks = 0;
+char gticksf = 0;
+char cfps[100];
+char cscore[100];
+char m = 0;
+char pause = 1;
+char gameover = 0;
+
+
+struct point
+{
+	int x;
+	int y;
+};
+struct point snake[1000];
+struct point p;
+struct point papple;
+int lsnake = 4;
+
+int main(int argc, char **argv)
+{
+	int j,i;
+	int loop = 1;
+	for(j = 0 ; j < lsnake; j++)
+	{	
+		snake[j].x = 10 + lsnake - j;
+		snake[j].y = 5;
+	}
+	p = snake[0];
+	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)!=0)
+    {
+        printf("Initialisation impossible!!!");
+        return 1;
+    }
+	TTF_Init();
+	SDL_WM_SetCaption("WORM SDL", NULL);
+    screen = SDL_SetVideoMode(WIDTH, HEIGHT, BPP, SDL_DOUBLEBUF | SDL_HWSURFACE);
+	
+	Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096);
+	s = Mix_LoadWAV("poua.wav");
+	if(s == NULL)
+	{
+		printf("!!");
+		return 1;
+	}
+	sprite1 = SDL_LoadBMP("BMP/ball.bmp");
+	apple = SDL_LoadBMP("BMP/apple.bmp");
+	grass = SDL_LoadBMP("BMP/grass.bmp");
+	colorkey = SDL_MapRGB(screen->format, 255, 255, 255);
+	SDL_SetColorKey(sprite1, SDL_SRCCOLORKEY, colorkey);
+	SDL_SetColorKey(apple, SDL_SRCCOLORKEY, colorkey);
+	back = SDL_AllocSurface(SDL_HWSURFACE, WIDTH, HEIGHT, BPP, 0, 0, 0, 0);
+	puttext(&tpause, "Press Space", 90, 255, 255, 255);
+	puttext(&tfps, "0 fps", 16, 160, 0, 0);
+	puttext(&tscore, "Score : 0", 22, 0, 0, 0);
+	puttext(&tgameover, "GAME OVER", 90, 255, 60, 60);
+	for(i = 0; i < 40; i++)
+	{
+		for(j = 0; j < 30; j++)
+		{
+			setrect(&rtmp, i * 20, j * 20, 0, 0);
+			SDL_BlitSurface(grass, NULL, back, &rtmp);
+		}
+	}
+	setrect(&rtmp, 0, 0, 800, 40);
+	SDL_FillRect(back, &rtmp, SDL_MapRGB(screen->format, 100, 100, 255));
+	if(screen==NULL) loop = 0;
+	putapple();
+	while(loop)
+    {
+        while(SDL_PollEvent(&event))
+        {
+            switch(event.type)
+            {
+                case SDL_QUIT:
+                	loop = 0;
+                	break;
+                case SDL_KEYDOWN:
+                	if(event.key.keysym.sym == SDLK_q) loop = 0;
+					if(event.key.keysym.sym == SDLK_DOWN)
+					{
+						if(!m)
+						{
+							dx = 0;
+							dy = 1;
+						}
+					}
+					if(event.key.keysym.sym == SDLK_UP)
+					{
+						if(!m)
+						{
+							dx = 0;
+							dy = -1;
+						}
+					}
+					if(event.key.keysym.sym == SDLK_RIGHT)
+					{
+						if(m)
+						{
+							dx = 1;
+							dy = 0;
+						}
+					}
+					if(event.key.keysym.sym == SDLK_LEFT)
+					{
+						if(m)
+						{
+							dx = -1;
+							dy = 0;
+						}
+					}
+					if(event.key.keysym.sym == SDLK_SPACE)
+					{
+						pause = 1 - pause;
+						if(!pause && gameover)
+						{
+							score = 0;
+							gameover = 0;
+							sprintf(cscore, "Score : %d", score);
+							puttext(&tscore, cscore, 22, 0, 0, 0);
+							lsnake = 4;
+							for(j = 0 ; j < lsnake; j++)
+							{	
+								snake[j].x = 10 + lsnake - j;
+								snake[j].y = 5;
+							}
+							p = snake[0];
+							dx = 1;
+							dy = 0;
+						}
+					}
+					break;
+				default:
+                	break;
+            }
+        }
+		
+		if(!gticks)
+		{
+			startticks = SDL_GetTicks();
+			gticks = 1;
+		}
+		if((SDL_GetTicks() - startticks) >= 50)
+		{
+			if(!pause && !gameover)
+			{
+				
+				p.x += dx;
+				p.y += dy;
+				if((p.x == papple.x) && (p.y == papple.y)) 
+				{
+					snake[lsnake] = snake[lsnake-1];
+					snake[lsnake+1] = snake[lsnake-1];
+					lsnake += 2;
+					score++;
+					sprintf(cscore, "Score : %d", score);
+					puttext(&tscore, cscore, 22, 0, 0, 0);
+					Mix_PlayChannel(-1, s, 0);
+					putapple();
+				}
+				m = (!dx);
+				for (j = lsnake ; j > 0; j--) snake[j] = snake[j-1];
+				if(p.x < 0) p.x = 39;
+				if(p.x > 39) p.x = 0;
+				if(p.y < 0) p.y = 27;
+				if(p.y > 27) p.y = 0;
+				snake[0] = p;
+				for(j = 1; j <= lsnake; j++)	 if((snake[0].x == snake[j].x) && (snake[0].y ==snake[j].y)) gameover = 1;
+				gticks = 0;
+			}
+			SDL_BlitSurface(back, NULL, screen, NULL);
+			setrect(&rtmp, papple.x * 20, papple.y * 20 + 40, 0, 0);
+			SDL_BlitSurface(apple, NULL, screen, &rtmp);		
+			for(j = 0; j < lsnake; j++)
+			{
+				setrect(&rtmp, snake[j].x * 20, snake[j].y * 20 + 40, 0, 0);
+				SDL_BlitSurface(sprite1, NULL, screen, &rtmp);		
+			}
+		}
+		fps++;
+		if(gticksf == 0) 
+		{	
+			startticksf = SDL_GetTicks();
+			gticksf = 1;
+		}	
+		if(SDL_GetTicks() - startticksf >= 1000)
+		{
+			gticksf = 0;
+			sprintf(cfps, "%d fps", fps);
+			puttext(&tfps, cfps, 16, 160, 0, 0);
+			fps = 0;
+		}
+		if(pause) 
+		{
+			setrect(&rtmp, 120, 180, 0, 0);
+			SDL_BlitSurface(tpause, NULL, screen, &rtmp);
+		}
+		if(gameover)
+		{
+			setrect(&rtmp, 130, 300, 0, 0);
+			SDL_BlitSurface(tgameover, NULL, screen, &rtmp);
+			pause = 1;
+		}
+		setrect(&rtmp, 700, 10, 0, 0);
+		SDL_BlitSurface(tfps, NULL, screen, &rtmp);
+		setrect(&rtmp, 30, 10, 0, 0);
+		SDL_BlitSurface(tscore, NULL, screen, &rtmp);
+		SDL_Flip(screen);		
+	}
+    SDL_Quit();
+    return 0;
+}
+void putapple()
+{
+	int i;
+	char b = 0;
+	char c = 0;
+	while(!c)
+	{
+		b = 0;
+		papple.x = (int)(rand() / (RAND_MAX / 39)); 
+		papple.y = (int)(rand() / (RAND_MAX / 27)); 
+		for(i = 0; (i < lsnake) && !b; i++)
+		{
+			if((snake[i].x == papple.x) && (snake[i].y == papple.y))b = 1;
+		}
+		if(!b) c = 1;
+	}
+}
+void puttext(SDL_Surface **surface, char *text, int size, int r, int g, int b)
+{
+	textcolor.r = r;
+	textcolor.g = g;
+	textcolor.b = b;
+	font = TTF_OpenFont("Roman.ttf", size);
+	SDL_FreeSurface(*surface);
+	*surface = TTF_RenderText_Solid(font, text, textcolor);
+	TTF_CloseFont(font);
+}
+
+void setrect(SDL_Rect *rect, int x, int y, int w, int h)
+{
+	rect->x = x;
+	rect->y = y;
+	rect->w = w;
+	rect->h = h;
+}
